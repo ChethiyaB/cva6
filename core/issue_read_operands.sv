@@ -37,6 +37,9 @@ module issue_read_operands
     input logic flush_i,
     // Stall inserted by Acc dispatcher - ACC_DISPATCHER
     input logic stall_i,
+    // Window configuration from CSR unit  
+    input logic [5:0] rf_window_base_i,  
+    input logic [5:0] rf_window_size_i,  
     // Entry about the instruction to issue - SCOREBOARD
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] issue_instr_i,
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] issue_instr_i_prev,
@@ -120,7 +123,7 @@ module issue_read_operands
     output logic x_issue_writeback_o,
     output logic [CVA6Cfg.TRANS_ID_BITS-1:0] x_id_o,
     // Destination register in the register file - COMMIT_STAGE
-    input logic [CVA6Cfg.NrCommitPorts-1:0][4:0] waddr_i,
+    input logic [CVA6Cfg.NrCommitPorts-1:0][REG_ADDR_SIZE-1:0] waddr_i,
     // Value to write to register file - COMMIT_STAGE
     input logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.XLEN-1:0] wdata_i,
     // GPR write enable - COMMIT_STAGE
@@ -902,8 +905,8 @@ module issue_read_operands
 
   //adjust address to read from register file (when synchronous RAM is used reads take one cycle, so we advance the address)
   for (genvar i = 0; i <= CVA6Cfg.NrIssuePorts - 1; i++) begin
-    assign raddr_pack[i*OPERANDS_PER_INSTR+0] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].rs1[4:0] : issue_instr_i[i].rs1[4:0];
-    assign raddr_pack[i*OPERANDS_PER_INSTR+1] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].rs2[4:0] : issue_instr_i[i].rs2[4:0];
+    assign raddr_pack[i*OPERANDS_PER_INSTR+0] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].rs1[REG_ADDR_SIZE-1:0] : issue_instr_i[i].rs1[REG_ADDR_SIZE-1:0];
+    assign raddr_pack[i*OPERANDS_PER_INSTR+1] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].rs2[REG_ADDR_SIZE-1:0] : issue_instr_i[i].rs2[REG_ADDR_SIZE-1:0];
     if (OPERANDS_PER_INSTR == 3) begin
       assign raddr_pack[i*OPERANDS_PER_INSTR+2] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].result[4:0] : issue_instr_i[i].result[4:0];
     end
@@ -928,7 +931,9 @@ module issue_read_operands
         .rdata_o  (rdata),
         .waddr_i  (waddr_pack),
         .wdata_i  (wdata_pack),
-        .we_i     (we_pack)
+        .we_i     (we_pack),
+        .rf_window_base_i (rf_window_base_i),  
+        .rf_window_size_i (rf_window_size_i)  
     );
   end else begin : gen_asic_regfile
     ariane_regfile #(
@@ -944,7 +949,9 @@ module issue_read_operands
         .rdata_o  (rdata),
         .waddr_i  (waddr_pack),
         .wdata_i  (wdata_pack),
-        .we_i     (we_pack)
+        .we_i     (we_pack),
+        .rf_window_base_i (rf_window_base_i),  
+        .rf_window_size_i (rf_window_size_i)
     );
   end
 
@@ -990,7 +997,9 @@ module issue_read_operands
             .rdata_o  (fprdata),
             .waddr_i  (waddr_pack),
             .wdata_i  (fp_wdata_pack),
-            .we_i     (we_fpr_i)
+            .we_i     (we_fpr_i),
+	    .rf_window_base_i (rf_window_base_i),
+            .rf_window_size_i (rf_window_size_i)   
         );
       end else begin : gen_asic_fp_regfile
         ariane_regfile #(
@@ -1006,7 +1015,9 @@ module issue_read_operands
             .rdata_o  (fprdata),
             .waddr_i  (waddr_pack),
             .wdata_i  (fp_wdata_pack),
-            .we_i     (we_fpr_i)
+            .we_i     (we_fpr_i),
+	    .rf_window_base_i (rf_window_base_i),
+	    .rf_window_size_i (rf_window_size_i)     
         );
       end
     end else begin : no_fpr_gen

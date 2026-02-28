@@ -869,6 +869,9 @@ module cva6
       .flush_unissued_instr_i  (flush_unissued_instr_ctrl_id),
       .flush_i                 (flush_ctrl_id),
       .stall_i                 (stall_acc_id),
+      // Temporary hardwiring
+      .rf_window_base_i (6'd0),  
+      .rf_window_size_i (6'd32),  
       // ID Stage
       .decoded_instr_i         (issue_entry_id_issue),
       .decoded_instr_i_prev    (issue_entry_id_issue_prev),

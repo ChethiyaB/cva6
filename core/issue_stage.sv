@@ -41,6 +41,11 @@ module issue_stage
     input logic flush_i,
     // Stall inserted by Acc dispatcher - ACC_DISPATCHER
     input logic stall_i,
+
+    // [MODIFIED] window control ports
+    input logic [5:0] rf_window_base_i,  
+    input logic [5:0] rf_window_size_i,
+    
     // Handshake's data with decode stage - ID_STAGE
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] decoded_instr_i,
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] decoded_instr_i_prev,
@@ -145,9 +150,9 @@ module issue_stage
     // CVXIF write enable - EX_STAGE
     input logic x_we_i,
     // CVXIF destination register - EX_STAGE
-    input logic [4:0] x_rd_i,
+    input logic [REG_ADDR_SIZE-1:0] x_rd_i,
     // Destination register in register file - COMMIT_STAGE
-    input logic [CVA6Cfg.NrCommitPorts-1:0][4:0] waddr_i,
+    input logic [CVA6Cfg.NrCommitPorts-1:0][REG_ADDR_SIZE-1:0] waddr_i,
     // Value to write to register file - COMMIT_STAGE
     input logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.XLEN-1:0] wdata_i,
     // GPR write enable - COMMIT_STAGE
@@ -245,7 +250,7 @@ module issue_stage
   issue_read_operands #(
       .CVA6Cfg(CVA6Cfg),
       .branchpredict_sbe_t(branchpredict_sbe_t),
-      .fu_data_t(fu_data_t),
+      .fu_data_t(fu_data_t),  
       .scoreboard_entry_t(scoreboard_entry_t),
       .rs3_len_t(rs3_len_t),
       .writeback_t(writeback_t),
@@ -255,6 +260,8 @@ module issue_stage
       .x_register_t(x_register_t),
       .x_commit_t(x_commit_t)
   ) i_issue_read_operands (
+      .rf_window_base_i (rf_window_base_i),
+      .rf_window_size_i (rf_window_size_i),
       .clk_i,
       .rst_ni,
       .flush_i                 (flush_unissued_instr_i),

@@ -39,7 +39,10 @@ module ariane_regfile #(
     // write port
     input  logic [CVA6Cfg.NrCommitPorts-1:0][           4:0] waddr_i,
     input  logic [CVA6Cfg.NrCommitPorts-1:0][DATA_WIDTH-1:0] wdata_i,
-    input  logic [CVA6Cfg.NrCommitPorts-1:0]                 we_i
+    input  logic [CVA6Cfg.NrCommitPorts-1:0]                 we_i,
+    // window port
+    input logic [5:0]  rf_window_base_i,
+    input logic [5:0]  rf_window_size_i
 );
 
   localparam ADDR_WIDTH = 5;
