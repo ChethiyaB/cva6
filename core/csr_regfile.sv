@@ -72,6 +72,9 @@ module csr_regfile
     output logic [CVA6Cfg.VLEN-1:0] trap_vector_base_o,
     // Current privilege level the CPU is in - EX_STAGE
     output riscv::priv_lvl_t priv_lvl_o,
+    // [MODIFIED] Custom Register Window CSRs  
+    output logic [5:0] rf_window_base_o,  
+    output logic [5:0] rf_window_size_o,
     // Data Endian mode
     output logic mbe_o,
     // Current virtualization mode state the CPU is in - EX_STAGE
@@ -341,9 +344,16 @@ module csr_regfile
 
   riscv::fcsr_t fcsr_q, fcsr_d;
   jvt_t jvt_q, jvt_d;
+  // [MODIFIED] Custom Window CSRs 
+  logic [5:0] window_base_q, window_base_n;  
+  logic [5:0] window_size_q, window_size_n;
   // ----------------
   // Assignments
   // ----------------
+  // [MODIFIED] Drive the window ports
+  assign rf_window_base_o = window_base_q;  
+  assign rf_window_size_o = window_size_q;
+
   assign csr_addr = riscv::csr_t'(csr_addr_i);
   assign conv_csr_addr = (CVA6Cfg.RVH) ? riscv::convert_vs_access_csr(
       (riscv::csr_t'(csr_addr_i)), v_q
@@ -376,6 +386,15 @@ module csr_regfile
 
     if (csr_read) begin
       unique case (conv_csr_addr.address)
+        // [MODIFIED] Custom Window CSR Reads
+        12'h800: begin 
+            csr_rdata = {{CVA6Cfg.XLEN-6{1'b0}}, window_base_q};  
+            read_access_exception = 1'b0; 
+        end
+        12'h801: begin 
+            csr_rdata = {{CVA6Cfg.XLEN-6{1'b0}}, window_size_q};  
+            read_access_exception = 1'b0; 
+        end
         riscv::CSR_FFLAGS: begin
           if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (CVA6Cfg.RVH && v_q && vsstatus_q.fs == riscv::Off))) begin
             csr_rdata = {{CVA6Cfg.XLEN - 5{1'b0}}, fcsr_q.fflags};
@@ -957,6 +976,14 @@ module csr_regfile
             csr_rdata = {pmpaddr_q[index][CVA6Cfg.PLEN-3:1], 1'b1};
           else csr_rdata = {pmpaddr_q[index][CVA6Cfg.PLEN-3:1], 1'b0};
         end
+        12'h800: begin 
+            csr_rdata = {{CVA6Cfg.XLEN-6{1'b0}}, window_base_q};  
+            read_access_exception = 1'b0; // Tell CPU this read is safe and legal!
+        end
+        12'h801: begin 
+            csr_rdata = {{CVA6Cfg.XLEN-6{1'b0}}, window_size_q};  
+            read_access_exception = 1'b0; // Tell CPU this read is safe and legal!
+        end
         default: read_access_exception = 1'b1;
       endcase
     end
@@ -1117,6 +1144,15 @@ module csr_regfile
     // check for correct access rights and that we are writing
     if (csr_we) begin
       unique case (conv_csr_addr.address)
+        // [MODIFIED] Custom Window CSR Writes
+        12'h800: begin 
+            window_base_n = csr_wdata[5:0];
+            update_access_exception = 1'b0;
+        end
+        12'h801: begin 
+            window_size_n = csr_wdata[5:0];
+            update_access_exception = 1'b0;
+        end
         // Floating-Point
         riscv::CSR_FFLAGS: begin
           if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (CVA6Cfg.RVH && v_q && vsstatus_q.fs == riscv::Off))) begin
@@ -2849,6 +2885,9 @@ module csr_regfile
           pmpaddr_q[i] <= '0;
         end
       end
+      // [MODIFIED] Default configuration mimics standard RV32I
+      window_base_q   <= 6'd0;    // Default base is 0  
+      window_size_q   <= 6'd32;   // Default size is 32 (standard RISC-V)
     end else begin
       priv_lvl_q <= priv_lvl_d;
       // floating-point registers
@@ -2940,6 +2979,9 @@ module csr_regfile
       // pmp
       pmpcfg_q               <= pmpcfg_next;
       pmpaddr_q              <= pmpaddr_next;
+      // [MODIFIED] Update state
+      window_base_q   <= window_base_n;  
+      window_size_q   <= window_size_n;  
     end
   end
 

@@ -669,6 +669,10 @@ module cva6
   logic [CVA6Cfg.NrIssuePorts-1:0] rvfi_is_compressed;
   rvfi_probes_csr_t rvfi_csr;
 
+  // [MODIFIED] Custom Register Window Routing Wires  
+  logic [5:0] rf_window_base;  
+  logic [5:0] rf_window_size;
+
   // Accelerator port
   logic [63:0] inval_addr;
   logic inval_valid;
@@ -865,13 +869,15 @@ module cva6
   ) issue_stage_i (
       .clk_i,
       .rst_ni,
+
+      // [MODIFIED] Feed the live CSR values into the Issue Stage / Regfile!
+      .rf_window_base_i (rf_window_base),  
+      .rf_window_size_i (rf_window_size),
       .sb_full_o               (sb_full),
       .flush_unissued_instr_i  (flush_unissued_instr_ctrl_id),
       .flush_i                 (flush_ctrl_id),
       .stall_i                 (stall_acc_id),
-      // Temporary hardwiring
-      .rf_window_base_i (6'd0),  
-      .rf_window_size_i (6'd32),  
+      
       // ID Stage
       .decoded_instr_i         (issue_entry_id_issue),
       .decoded_instr_i_prev    (issue_entry_id_issue_prev),
@@ -1257,7 +1263,10 @@ module cva6
       .vaddr_from_lsu_i        (rvfi_lsu_ctrl.vaddr),
       .orig_instr_i            (orig_instr_id_issue),
       .store_result_i          (store_result_ex_id),
-      .break_from_trigger_o    (break_from_trigger)
+      .break_from_trigger_o    (break_from_trigger),
+      // [MODIFIED] Direct connection from CSRs to routing wires
+      .rf_window_base_o (rf_window_base),
+      .rf_window_size_o (rf_window_size)
   );
 
   // ------------------------
