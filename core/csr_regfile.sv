@@ -72,6 +72,9 @@ module csr_regfile
     output logic [CVA6Cfg.VLEN-1:0] trap_vector_base_o,
     // Current privilege level the CPU is in - EX_STAGE
     output riscv::priv_lvl_t priv_lvl_o,
+    // Windowed register file: base and size of active window (Phase 1)
+    output logic [5:0] rf_window_base_o,
+    output logic [5:0] rf_window_size_o,
     // Data Endian mode
     output logic mbe_o,
     // Current virtualization mode state the CPU is in - EX_STAGE
@@ -341,6 +344,8 @@ module csr_regfile
 
   riscv::fcsr_t fcsr_q, fcsr_d;
   jvt_t jvt_q, jvt_d;
+  logic [5:0] window_base_q, window_base_d;
+  logic [5:0] window_size_q, window_size_d;
   // ----------------
   // Assignments
   // ----------------
@@ -376,6 +381,9 @@ module csr_regfile
 
     if (csr_read) begin
       unique case (conv_csr_addr.address)
+        // Windowed register file (Phase 1): custom CSRs 0x800 (base), 0x801 (size)
+        12'h800: csr_rdata = {{CVA6Cfg.XLEN - 6{1'b0}}, window_base_q};
+        12'h801: csr_rdata = {{CVA6Cfg.XLEN - 6{1'b0}}, window_size_q};
         riscv::CSR_FFLAGS: begin
           if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (CVA6Cfg.RVH && v_q && vsstatus_q.fs == riscv::Off))) begin
             csr_rdata = {{CVA6Cfg.XLEN - 5{1'b0}}, fcsr_q.fflags};
@@ -1013,6 +1021,8 @@ module csr_regfile
       jvt_d = jvt_q;
     end
     fcsr_d       = fcsr_q;
+    window_base_d = window_base_q;
+    window_size_d = window_size_q;
 
     priv_lvl_d   = priv_lvl_q;
     v_d          = v_q;
@@ -1117,6 +1127,12 @@ module csr_regfile
     // check for correct access rights and that we are writing
     if (csr_we) begin
       unique case (conv_csr_addr.address)
+        // Windowed register file (Phase 1): 0x800 = base, 0x801 = size (6 bits each)
+        12'h800: window_base_d = csr_wdata[5:0];
+        12'h801: begin
+          window_size_d = csr_wdata[5:0];
+          if (window_size_d == 6'b0) window_size_d = 6'd32;  // size 0 -> 32 (full window)
+        end
         // Floating-Point
         riscv::CSR_FFLAGS: begin
           if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (CVA6Cfg.RVH && v_q && vsstatus_q.fs == riscv::Off))) begin
@@ -2747,10 +2763,14 @@ module csr_regfile
   assign mcountinhibit_o = {{29 - MHPMCounterNum{1'b0}}, mcountinhibit_q};
 
   assign mbe_o = mstatus_q.mbe;
+  assign rf_window_base_o = window_base_q;
+  assign rf_window_size_o = window_size_q;
 
   // sequential process
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
+      window_base_q <= 6'b0;
+      window_size_q <= 6'd32;
       priv_lvl_q <= riscv::PRIV_LVL_M;
       // floating-point registers
       fcsr_q     <= '0;
@@ -2850,6 +2870,8 @@ module csr_regfile
         end
       end
     end else begin
+      window_base_q <= window_base_d;
+      window_size_q <= window_size_d;
       priv_lvl_q <= priv_lvl_d;
       // floating-point registers
       fcsr_q     <= fcsr_d;

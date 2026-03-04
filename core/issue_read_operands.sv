@@ -37,6 +37,9 @@ module issue_read_operands
     input logic flush_i,
     // Stall inserted by Acc dispatcher - ACC_DISPATCHER
     input logic stall_i,
+    // Windowed register file: base and size of active window (Phase 1)
+    input logic [5:0] rf_window_base_i,
+    input logic [5:0] rf_window_size_i,
     // Entry about the instruction to issue - SCOREBOARD
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] issue_instr_i,
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] issue_instr_i_prev,
@@ -928,7 +931,9 @@ module issue_read_operands
         .rdata_o  (rdata),
         .waddr_i  (waddr_pack),
         .wdata_i  (wdata_pack),
-        .we_i     (we_pack)
+        .we_i     (we_pack),
+        .rf_window_base_i,
+        .rf_window_size_i
     );
   end else begin : gen_asic_regfile
     ariane_regfile #(
@@ -944,7 +949,9 @@ module issue_read_operands
         .rdata_o  (rdata),
         .waddr_i  (waddr_pack),
         .wdata_i  (wdata_pack),
-        .we_i     (we_pack)
+        .we_i     (we_pack),
+        .rf_window_base_i,
+        .rf_window_size_i
     );
   end
 
@@ -990,7 +997,9 @@ module issue_read_operands
             .rdata_o  (fprdata),
             .waddr_i  (waddr_pack),
             .wdata_i  (fp_wdata_pack),
-            .we_i     (we_fpr_i)
+            .we_i     (we_fpr_i),
+            .rf_window_base_i,
+            .rf_window_size_i
         );
       end else begin : gen_asic_fp_regfile
         ariane_regfile #(
@@ -1006,7 +1015,9 @@ module issue_read_operands
             .rdata_o  (fprdata),
             .waddr_i  (waddr_pack),
             .wdata_i  (fp_wdata_pack),
-            .we_i     (we_fpr_i)
+            .we_i     (we_fpr_i),
+            .rf_window_base_i,
+            .rf_window_size_i
         );
       end
     end else begin : no_fpr_gen

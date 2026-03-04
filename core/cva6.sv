@@ -374,6 +374,7 @@ module cva6
   // ------------------------------------------
   riscv::priv_lvl_t priv_lvl;
   logic v;
+  logic [5:0] rf_window_base, rf_window_size;  // windowed register file (Phase 1)
   exception_t ex_commit;  // exception from commit stage
   bp_resolve_t resolved_branch;
   logic [CVA6Cfg.VLEN-1:0] pc_commit;
@@ -869,6 +870,8 @@ module cva6
       .flush_unissued_instr_i  (flush_unissued_instr_ctrl_id),
       .flush_i                 (flush_ctrl_id),
       .stall_i                 (stall_acc_id),
+      .rf_window_base_i        (rf_window_base),
+      .rf_window_size_i        (rf_window_size),
       // ID Stage
       .decoded_instr_i         (issue_entry_id_issue),
       .decoded_instr_i_prev    (issue_entry_id_issue_prev),
@@ -1191,6 +1194,8 @@ module cva6
       .eret_o                  (eret),
       .trap_vector_base_o      (trap_vector_base_commit_pcgen),
       .priv_lvl_o              (priv_lvl),
+      .rf_window_base_o        (rf_window_base),
+      .rf_window_size_o        (rf_window_size),
       .mbe_o                   (mbe),
       .v_o                     (v),
       .acc_fflags_ex_i         (acc_resp_fflags),
