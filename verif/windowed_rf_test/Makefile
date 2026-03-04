@@ -14,7 +14,7 @@ ifeq ($(ELF32),1)
   ELF = $(BUILD_DIR)/windowed_rf_csr_test_32.riscv
 else
   CC = $(RISCV)/bin/riscv64-unknown-elf-gcc
-  CFLAGS  = -march=rv64gc -mabi=lp64d -nostdlib -ffreestanding -O2 -Wall
+  CFLAGS  = -march=rv64gc -mabi=lp64d -mcmodel=medlow -nostdlib -ffreestanding -O2 -Wall
   LINKER  = $(SRC_DIR)/link.ld
   ELF = $(BUILD_DIR)/windowed_rf_csr_test.riscv
 endif
@@ -28,8 +28,8 @@ all: $(ELF)
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-$(ELF): $(BUILD_DIR) $(SRC_DIR)/windowed_rf_csr_test.c $(SRC_DIR)/start.S $(LINKER)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC_DIR)/start.S $(SRC_DIR)/windowed_rf_csr_test.c
+$(ELF): $(BUILD_DIR) $(SRC_DIR)/windowed_rf_csr_test.c $(SRC_DIR)/start.S $(SRC_DIR)/tohost.S $(LINKER)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC_DIR)/start.S $(SRC_DIR)/tohost.S $(SRC_DIR)/windowed_rf_csr_test.c
 
 clean:
 	rm -rf $(BUILD_DIR)

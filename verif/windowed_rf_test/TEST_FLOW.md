@@ -87,10 +87,11 @@ make check-asm-tests
 
 ### 4.4 Run the custom windowed-RF test
 
-Build the minimal CSR test (see below), then:
+Build the minimal CSR test (see below), then run with the test ELF. The tracer needs the tohost address; if it cannot read it from the ELF, pass it explicitly:
 
 ```bash
-make sim-verilator elf_file=$CVA6_REPO_DIR/verif/windowed_rf_test/build/windowed_rf_csr_test.riscv
+make sim-verilator elf_file=$CVA6_REPO_DIR/verif/windowed_rf_test/build/windowed_rf_csr_test.riscv \
+  SIM_ARGS="+tohost_addr=0x80001000"
 ```
 
 Or from the test directory:
@@ -99,8 +100,11 @@ Or from the test directory:
 cd verif/windowed_rf_test
 make
 cd ../..
-make sim-verilator elf_file=$(pwd)/verif/windowed_rf_test/build/windowed_rf_csr_test.riscv
+make sim-verilator elf_file=$(pwd)/verif/windowed_rf_test/build/windowed_rf_csr_test.riscv \
+  SIM_ARGS="+tohost_addr=0x80001000"
 ```
+
+If you see `tohost_addr: 0000000000000000` and the run hits the cycle limit, use `SIM_ARGS="+tohost_addr=0x80001000"` so the tracer and DTM use the correct tohost address (0x80001000) and the test can finish with pass/fail.
 
 ## 5. Optional: increase simulation timeout
 
@@ -154,6 +158,5 @@ Build it from repo root after `RISCV` is set:
 cd verif/windowed_rf_test && make && cd ../..
 ```
 
-Then run with `elf_file` as in 4.4 above. The test does not implement a proper “exit to host” sequence; simulation will run until the testbench timeout or you stop it. Passing the CSR read/write checks indicates the window CSRs are working.
-
+Then run with `elf_file` and `SIM_ARGS="+tohost_addr=0x80001000"` as in 4.4 above. That tells the tracer where the test writes the exit status so the run can finish with pass/fail instead of timing out. Passing the CSR read/write checks indicates the window CSRs are working.
 **32-bit target:** If you use `target=cv32a6_imac_sv32`, build with `make ELF32=1` in this directory, then run with `elf_file=.../build/windowed_rf_csr_test_32.riscv`.

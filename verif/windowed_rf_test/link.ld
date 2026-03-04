@@ -21,5 +21,7 @@ SECTIONS
 	} > ram
 	.data : { *(.data .data.*) } > ram
 	.bss  : { *(.bss .bss.*) } > ram
+	/* fesvr/DTM/tracer read_symbol("tohost") - must be at 0x80001000 */
+	.tohost 0x80001000 (NOLOAD) : { *(.tohost) } > ram
 	_end = .;
 }

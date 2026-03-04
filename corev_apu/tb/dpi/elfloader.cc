@@ -81,7 +81,6 @@ extern "C" void read_elf(const char* filename) {
 
 
     std::vector<uint8_t> zeros;
-    std::map<std::string, uint64_t> symbols;
 
     #define LOAD_ELF(ehdr_t, phdr_t, shdr_t, sym_t) do { \
     ehdr_t* eh = (ehdr_t*)buf; \
@@ -121,7 +120,7 @@ extern "C" void read_elf(const char* filename) {
         unsigned max_len = sh[strtabidx].sh_size - sym[i].st_name; \
         assert(sym[i].st_name < sh[strtabidx].  sh_size); \
         assert(strnlen(strtab + sym[i].st_name, max_len) < max_len); \
-        symbols[strtab + sym[i].st_name] = sym[i].st_value; \
+        ::symbols[strtab + sym[i].st_name] = sym[i].st_value; \
       } \
     } \
     } while(0)
@@ -132,4 +131,12 @@ extern "C" void read_elf(const char* filename) {
     LOAD_ELF(Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr, Elf64_Sym);
 
   munmap(buf, size);
+}
+
+extern "C" unsigned char read_symbol(const char* symbol_name, unsigned long long* address) {
+  auto it = symbols.find(symbol_name);
+  if (it == symbols.end())
+    return 0;
+  *address = it->second;
+  return 1;
 }

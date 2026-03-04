@@ -708,8 +708,10 @@ verilate:
 	$(verilate_command)
 	cd $(ver-library) && $(MAKE) -j${NUM_JOBS} -f Variane_testharness.mk
 
+# Optional extra args for Verilator sim (e.g. +tohost_addr=0x80001000 for custom ELFs without symbol lookup)
+SIM_ARGS ?=
 sim-verilator: verilate
-	$(ver-library)/Variane_testharness $(elf_file)
+	$(ver-library)/Variane_testharness +elf_file=$(elf_file) $(SIM_ARGS) $(elf_file)
 
 $(addsuffix -verilator,$(riscv-asm-tests)): verilate
 	$(ver-library)/Variane_testharness $(riscv-test-dir)/$(subst -verilator,,$@)

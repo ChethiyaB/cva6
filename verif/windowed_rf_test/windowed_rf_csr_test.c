@@ -9,7 +9,8 @@
 #define CSR_WINDOW_BASE  0x800
 #define CSR_WINDOW_SIZE  0x801
 
-static volatile unsigned long test_fail;
+/* Exit via write_tohost(0)=pass, write_tohost(1)=fail (avoids HI20 relocation for 0x80001000) */
+extern void write_tohost(unsigned long val);
 
 static inline unsigned long csr_read(unsigned int csr)
 {
@@ -26,8 +27,7 @@ static inline void csr_write(unsigned int csr, unsigned long val)
 int main(void)
 {
 	unsigned long base, size;
-
-	test_fail = 0;
+	volatile unsigned long test_fail = 0;
 
 	/* Check reset values: base=0, size=32 */
 	base = csr_read(CSR_WINDOW_BASE);
@@ -65,7 +65,8 @@ int main(void)
 		: : : "a0", "a1", "a2"
 	);
 
-	/* If we get here without trap, and test_fail==0, CSRs and RF path are OK */
+	/* Exit via tohost: tracer ends sim only when written value has bit 0 set; exit code = value>>1. */
+	write_tohost(test_fail ? 3u : 1u);  /* 1 = pass (code 0), 3 = fail (code 1) */
 	while (1)
 		__asm__ volatile ("nop");
 }
