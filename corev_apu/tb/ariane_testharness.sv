@@ -631,6 +631,13 @@ module ariane_testharness #(
   rvfi_to_iti_t rvfi_to_iti;
   iti_to_encoder_t iti_to_encoder;
 
+  logic [CVA6Cfg.VLEN-1:0] boot_addr;
+  initial begin
+    boot_addr = {{(CVA6Cfg.VLEN-64){1'b0}}, ariane_soc::ROMBase};
+    if ($value$plusargs("boot_addr=%h", boot_addr))
+      $display("[ariane_testharness] boot_addr overridden to 0x%h", boot_addr);
+  end
+
   ariane #(
     .CVA6Cfg              ( CVA6Cfg             ),
     .rvfi_probes_instr_t  ( rvfi_probes_instr_t ),
@@ -641,7 +648,7 @@ module ariane_testharness #(
   ) i_ariane (
     .clk_i                ( clk_i               ),
     .rst_ni               ( ndmreset_n          ),
-    .boot_addr_i          ( ariane_soc::ROMBase ), // start fetching from ROM
+    .boot_addr_i          ( boot_addr           ), // default ROM; override with +boot_addr=0x80000000 for ELF at DRAM
     .hart_id_i            ( {56'h0, hart_id}    ),
     .irq_i                ( irqs                ),
     .ipi_i                ( ipi                 ),
@@ -673,7 +680,8 @@ module ariane_testharness #(
     if (axi_ariane_req.b_ready &&
       axi_ariane_resp.b_valid &&
       axi_ariane_resp.b.resp inside {axi_pkg::RESP_DECERR, axi_pkg::RESP_SLVERR}) begin
-      $warning("B Response Errored");
+      $warning("B Response Errored at addr 0x%h, data 0x%h, strb 0x%h",
+               axi_ariane_req.aw.addr, axi_ariane_req.w.data, axi_ariane_req.w.strb);
     end
   end
 

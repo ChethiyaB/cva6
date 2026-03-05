@@ -53,7 +53,7 @@
 // allow modulus.  You can also use a double, if you wish.
 static vluint64_t main_time = 0;
 
-static const char *verilog_plusargs[] = {"jtag_rbb_enable", "time_out", "debug_disable", "elf_file", "tohost_addr", nullptr};
+static const char *verilog_plusargs[] = {"jtag_rbb_enable", "time_out", "debug_disable", "elf_file", "tohost_addr", "boot_addr", nullptr};
 
 extern dtm_t* dtm;
 extern remote_bitbang_t * jtag;

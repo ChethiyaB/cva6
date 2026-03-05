@@ -346,6 +346,9 @@ module csr_regfile
   jvt_t jvt_q, jvt_d;
   logic [5:0] window_base_q, window_base_d;
   logic [5:0] window_size_q, window_size_d;
+  // Phase 2: staged window (applied on mret or write to 0x802)
+  logic [5:0] staged_base_q, staged_base_d;
+  logic [5:0] staged_size_q, staged_size_d;
   // ----------------
   // Assignments
   // ----------------
@@ -381,9 +384,10 @@ module csr_regfile
 
     if (csr_read) begin
       unique case (conv_csr_addr.address)
-        // Windowed register file (Phase 1): custom CSRs 0x800 (base), 0x801 (size)
+        // Windowed RF: 0x800/0x801 = active window (read); 0x802 = apply staged (write-only, read 0)
         12'h800: csr_rdata = {{CVA6Cfg.XLEN - 6{1'b0}}, window_base_q};
         12'h801: csr_rdata = {{CVA6Cfg.XLEN - 6{1'b0}}, window_size_q};
+        12'h802: csr_rdata = '0;  // apply staged to active (write-only)
         riscv::CSR_FFLAGS: begin
           if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (CVA6Cfg.RVH && v_q && vsstatus_q.fs == riscv::Off))) begin
             csr_rdata = {{CVA6Cfg.XLEN - 5{1'b0}}, fcsr_q.fflags};
@@ -1023,6 +1027,13 @@ module csr_regfile
     fcsr_d       = fcsr_q;
     window_base_d = window_base_q;
     window_size_d = window_size_q;
+    staged_base_d = staged_base_q;
+    staged_size_d = staged_size_q;
+    // Phase 2: on mret or write to 0x802, apply staged window to active
+    if (mret) begin
+      window_base_d = staged_base_q;
+      window_size_d = staged_size_q;
+    end
 
     priv_lvl_d   = priv_lvl_q;
     v_d          = v_q;
@@ -1127,11 +1138,15 @@ module csr_regfile
     // check for correct access rights and that we are writing
     if (csr_we) begin
       unique case (conv_csr_addr.address)
-        // Windowed register file (Phase 1): 0x800 = base, 0x801 = size (6 bits each)
-        12'h800: window_base_d = csr_wdata[5:0];
+        // Windowed RF Phase 2: 0x800/0x801 write staged; 0x802 write = apply staged to active
+        12'h800: staged_base_d = csr_wdata[5:0];
         12'h801: begin
-          window_size_d = csr_wdata[5:0];
-          if (window_size_d == 6'b0) window_size_d = 6'd32;  // size 0 -> 32 (full window)
+          staged_size_d = csr_wdata[5:0];
+          if (staged_size_d == 6'b0) staged_size_d = 6'd32;  // size 0 -> 32 (full window)
+        end
+        12'h802: begin
+          window_base_d = staged_base_q;
+          window_size_d = staged_size_q;
         end
         // Floating-Point
         riscv::CSR_FFLAGS: begin
@@ -2771,6 +2786,8 @@ module csr_regfile
     if (~rst_ni) begin
       window_base_q <= 6'b0;
       window_size_q <= 6'd32;
+      staged_base_q <= 6'b0;
+      staged_size_q <= 6'd32;
       priv_lvl_q <= riscv::PRIV_LVL_M;
       // floating-point registers
       fcsr_q     <= '0;
@@ -2872,6 +2889,8 @@ module csr_regfile
     end else begin
       window_base_q <= window_base_d;
       window_size_q <= window_size_d;
+      staged_base_q <= staged_base_d;
+      staged_size_q <= staged_size_d;
       priv_lvl_q <= priv_lvl_d;
       // floating-point registers
       fcsr_q     <= fcsr_d;

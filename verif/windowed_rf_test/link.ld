@@ -1,6 +1,7 @@
 /**
  * Minimal linker script for windowed RF test (64-bit).
- * Matches typical CVA6 testbench: RAM at 0x80000000.
+ * Matches CVA6 testbench: program at 0x80000000 (only that segment is loaded).
+ * Run with +boot_addr=0x80000000 so the core boots here instead of ROM.
  */
 
 OUTPUT_ARCH(riscv)
@@ -21,7 +22,7 @@ SECTIONS
 	} > ram
 	.data : { *(.data .data.*) } > ram
 	.bss  : { *(.bss .bss.*) } > ram
-	/* fesvr/DTM/tracer read_symbol("tohost") - must be at 0x80001000 */
-	.tohost 0x80001000 (NOLOAD) : { *(.tohost) } > ram
+	/* Host <-> target channel, match riscv-tests layout. */
+	.tohost  0x80001000 : { *(.tohost) *(.fromhost) } > ram
 	_end = .;
 }
