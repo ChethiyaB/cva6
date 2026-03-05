@@ -1,6 +1,7 @@
 /**
- * Minimal startup for windowed RF CSR test (64-bit).
- * write_tohost(val): write to 0x80001000 (original, known-good tohost address).
+ * Startup for windowed RF full CSR test (64-bit).
+ * _start sets sp, calls main; main tail-calls write_tohost(1/3).
+ * write_tohost(val): store val to 0x80001000 then spin (no ret).
  */
 
 .section .text.start

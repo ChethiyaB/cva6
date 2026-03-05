@@ -105,6 +105,10 @@ module rvfi_tracer #(
   assign end_of_test_o = end_of_test_d;
 
   always_ff @(posedge clk_i) begin
+    logic tohost_seen;
+    logic [31:0] tohost_value;
+    tohost_seen = 1'b0;
+    tohost_value = 32'h0;
     end_of_test_q <= (rst_ni && (end_of_test_d[0] == 1'b1)) ? end_of_test_d : 0;
     for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
       pc64 = {{CVA6Cfg.XLEN-CVA6Cfg.VLEN{rvfi_i[i].pc_rdata[CVA6Cfg.VLEN-1]}}, rvfi_i[i].pc_rdata};
@@ -159,11 +163,17 @@ module rvfi_tracer #(
         // Handle memory writes (including for AMO instructions which have both rd and mem_wmask)
         if (rvfi_i[i].mem_wmask != 0) begin
           $fwrite(f, " mem 0x%h 0x%h", rvfi_i[i].mem_addr, rvfi_i[i].mem_wdata);
-          if (TOHOST_ADDR != '0 &&
-              rvfi_i[i].mem_paddr[47:0] == TOHOST_ADDR[47:0] &&
-              rvfi_i[i].mem_wdata[0] == 1'b1) begin
-            end_of_test_q <= rvfi_i[i].mem_wdata[31:0];
-            $display("*** [rvfi_tracer] INFO: Simulation terminated after %d cycles!\n", cycles);
+          // Match tohost: compare lower 32 bits (0x80001000; core may sign-extend addr to 0xffff80001000)
+          if (TOHOST_ADDR != '0 && rvfi_i[i].mem_wdata[0] == 1'b1) begin
+            logic addr_match;
+            addr_match = (64'(rvfi_i[i].mem_addr) & 64'hFFFFFFFF) == (TOHOST_ADDR & 64'hFFFFFFFF) ||
+                         (64'(rvfi_i[i].mem_paddr) & 64'hFFFFFFFF) == (TOHOST_ADDR & 64'hFFFFFFFF);
+            if (addr_match) begin
+              tohost_seen = 1'b1;
+              tohost_value = rvfi_i[i].mem_wdata[31:0];
+              end_of_test_q <= rvfi_i[i].mem_wdata[31:0];
+              $display("*** [rvfi_tracer] INFO: Simulation terminated after %d cycles!\n", cycles);
+            end
           end
         end
         $fwrite(f, "\n");
@@ -196,7 +206,10 @@ module rvfi_tracer #(
     if (cycles > SIM_FINISH)
       end_of_test_q <= 32'hffff_ffff;
 
-    end_of_test_d <= end_of_test_q;
+    if (tohost_seen)
+      end_of_test_d <= tohost_value;
+    else
+      end_of_test_d <= end_of_test_q;
   end
 
 
