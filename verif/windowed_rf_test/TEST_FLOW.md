@@ -1,8 +1,10 @@
-# Test flow for windowed register file (Phase 1 + Phase 2) on Linux
+# Test flow for windowed register file (Phase 1 + Phase 2 + Phase 3) on Linux
 
 Use this flow on a Linux machine to build the CVA6 RTL (with windowed RF), run the simulation, and verify behavior.
 
-**Phase 2 (trap/mret):** Writes to 0x800/0x801 go to a *staged* config; the *active* window (used by the RF) is updated on **mret** or by writing **0x802** (apply staged → active). Reads 0x800/0x801 return the active window.
+**Phase 2 (trap/mret):** Writes to 0x800/0x801 go to a *staged* config; the *active* window (used by the RF) is updated on **mret** or by writing **0x802** (apply staged → active).
+
+**Phase 3:** Context-switch integration and OS path; see `verif/windowed_rf_test/PHASE3_PLAN.md`. Branch: `feature/windowed-regfile-phase3`. Reads 0x800/0x801 return the active window.
 
 ## Prerequisites
 
@@ -23,7 +25,7 @@ Use this flow on a Linux machine to build the CVA6 RTL (with windowed RF), run t
 export RISCV=/path/to/your/riscv/toolchain
 export CVA6_REPO_DIR=/path/to/cva6   # optional; Makefile sets it if unset
 cd $CVA6_REPO_DIR
-git checkout feature/windowed-regfile-phase1   # or your Phase 1 branch
+git checkout feature/windowed-regfile-phase3   # or feature/windowed-regfile-phase1
 ```
 
 ## 2. Build RISC-V tests (required for simulation ELF)
