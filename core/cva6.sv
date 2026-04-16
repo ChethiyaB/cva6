@@ -599,6 +599,8 @@ module cva6
   // trigger module
   logic debug_from_trigger;
   logic break_from_trigger;
+  // Partitioned Register File - Window Configuration
+  logic [CVA6Cfg.XLEN-1:0] window_config_csr;
   riscv::cbie_t mcbie, scbie, hcbie;
   logic mcbcfe, scbcfe, hcbcfe;
   // ----------------------------
@@ -940,6 +942,7 @@ module cva6
       .wdata_i              (wdata_commit_id),
       .we_gpr_i             (we_gpr_commit_id),
       .we_fpr_i             (we_fpr_commit_id),
+      .window_config_i      (window_config_csr),
       .commit_instr_o       (commit_instr_id_commit),
       .commit_drop_o        (commit_drop_id_commit),
       .commit_ack_i         (commit_ack_commit_id),
@@ -1254,7 +1257,9 @@ module cva6
       .vaddr_from_lsu_i        (rvfi_lsu_ctrl.vaddr),
       .orig_instr_i            (orig_instr_id_issue),
       .store_result_i          (store_result_ex_id),
-      .break_from_trigger_o    (break_from_trigger)
+      .break_from_trigger_o    (break_from_trigger),
+      // Partitioned Register File - Window Configuration
+      .window_config_o         (window_config_csr)
   );
 
   // ------------------------
