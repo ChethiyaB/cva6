@@ -191,7 +191,9 @@ module csr_regfile
     input logic [CVA6Cfg.VLEN-1:0] vaddr_from_lsu_i,
     input logic [CVA6Cfg.NrIssuePorts-1:0][31:0] orig_instr_i,
     input logic [CVA6Cfg.XLEN-1:0] store_result_i,
-    output logic break_from_trigger_o
+    output logic break_from_trigger_o,
+    // Partitioned Register File - Window Configuration Output
+    output logic [CVA6Cfg.XLEN-1:0] window_config_o
 );
 
   localparam logic [63:0] SMODE_STATUS_READ_MASK = ariane_pkg::smode_status_read_mask(CVA6Cfg);
@@ -267,6 +269,10 @@ module csr_regfile
   logic [CVA6Cfg.XLEN-1:0] mtinst_q, mtinst_d;
   logic [CVA6Cfg.XLEN-1:0] mtval2_q, mtval2_d;
   logic fiom_d, fiom_q;
+  
+  // Partitioned Register File Window Configuration
+  logic [CVA6Cfg.XLEN-1:0] window_config_q, window_config_d;   // CSR 0x800 - Active window (base[15:0] | size[31:16])
+  logic [CVA6Cfg.XLEN-1:0] prev_window_config_q, prev_window_config_d;  // CSR 0x801 - Saved window for context switch
 
   logic [CVA6Cfg.XLEN-1:0] stvec_q, stvec_d;
   logic [CVA6Cfg.XLEN-1:0] scounteren_q, scounteren_d;
@@ -627,6 +633,9 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = mtval2_q;
         else read_access_exception = 1'b1;
         riscv::CSR_MIP: csr_rdata = mip_q;
+        // Partitioned Register File Window CSRs
+        12'h800: csr_rdata = window_config_q;  // Active window configuration
+        12'h801: csr_rdata = prev_window_config_q;  // Saved window configuration
         riscv::CSR_MENVCFG: begin
           csr_rdata = '0;
           if (CVA6Cfg.RVU) begin
@@ -1692,6 +1701,13 @@ module csr_regfile
           end
           mip_d = (mip_q & ~mask) | (csr_wdata & mask);
         end
+        // Partitioned Register File Window CSRs
+        12'h800: begin  // Active window configuration - sets base and size
+          window_config_d = csr_wdata;
+        end
+        12'h801: begin  // Previous window configuration - saved context for task switch
+          prev_window_config_d = csr_wdata;
+        end
         riscv::CSR_MENVCFG: begin
           if (CVA6Cfg.RVU) begin
             fiom_d = csr_wdata[0];
@@ -2005,6 +2021,18 @@ module csr_regfile
     // we got an exception update cause, pc and stval register
     trap_to_priv_lvl = riscv::PRIV_LVL_M;
     trap_to_v = 1'b0;
+    
+    // =========================================================
+    // PARTITIONED REGISTER FILE: Auto-save window on trap entry
+    // (Hardware context switch - saves current window config)
+    // =========================================================
+    if (ex_i.valid && !debug_mode_q) begin
+      // Save current window configuration to prev_window_config (CSR 0x801)
+      prev_window_config_d = window_config_q;
+      // Force kernel mode window (base=0, size=32) for trap handler
+      window_config_d = {32'h0020_0000};  // size=32, base=0
+    end
+    
     // Exception is taken and we are not in debug mode
     // exceptions in debug mode don't update any fields
     if ((CVA6Cfg.DebugEn && !debug_mode_q && ex_i.cause != riscv::DEBUG_REQUEST && ex_i.valid) || (!CVA6Cfg.DebugEn && ex_i.valid) || (!CVA6Cfg.DebugEn && CVA6Cfg.SDTRIG && break_from_trigger)) begin
@@ -2304,6 +2332,12 @@ module csr_regfile
     // When executing an xRET instruction, supposing xPP holds the value y, xIE is set to xPIE; the privilege
     // mode is changed to y; xPIE is set to 1; and xPP is set to U
     if (mret) begin
+      // =========================================================
+      // PARTITIONED REGISTER FILE: Auto-restore window on mret
+      // (Hardware context restore - loads saved window config)
+      // =========================================================
+      window_config_d = prev_window_config_q;  // Restore saved window
+      
       // return from exception, IF doesn't care from where we are returning
       eret_o        = 1'b1;
       // return to the previous privilege level and restore all enable flags
@@ -2778,6 +2812,9 @@ module csr_regfile
       mscratch_q       <= {CVA6Cfg.XLEN{1'b0}};
       if (CVA6Cfg.TvalEn) mtval_q <= {CVA6Cfg.XLEN{1'b0}};
       fiom_q          <= '0;
+      // Partitioned Register File Window CSRs - reset to full register file access
+      window_config_q        <= {32'h0020_0000};  // size=32, base=0 (full register file)
+      prev_window_config_q   <= '0;
       dcache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       icache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q <= '0;
@@ -2876,6 +2913,11 @@ module csr_regfile
       mscratch_q       <= mscratch_d;
       if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
       fiom_q          <= fiom_d;
+      // Partitioned Register File Window CSRs
+      window_config_q    <= window_config_d;
+      prev_window_config_q <= prev_window_config_d;
+      // Output window configuration to register file
+      window_config_o <= window_config_q;
       dcache_q        <= dcache_d;
       icache_q        <= icache_d;
       mcountinhibit_q <= mcountinhibit_d;

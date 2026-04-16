@@ -127,6 +127,8 @@ module issue_read_operands
     input logic [CVA6Cfg.NrCommitPorts-1:0] we_gpr_i,
     // FPR write enable - COMMIT_STAGE
     input logic [CVA6Cfg.NrCommitPorts-1:0] we_fpr_i,
+    // Partitioned Register File - Window Configuration Input
+    input logic [CVA6Cfg.XLEN-1:0] window_config_i,
     // Issue stall - PERF_COUNTERS
     output logic stall_issue_o,
     // Information dedicated to RVFI - RVFI
@@ -928,7 +930,8 @@ module issue_read_operands
         .rdata_o  (rdata),
         .waddr_i  (waddr_pack),
         .wdata_i  (wdata_pack),
-        .we_i     (we_pack)
+        .we_i     (we_pack),
+        .window_config_i(window_config_i)
     );
   end else begin : gen_asic_regfile
     ariane_regfile #(
@@ -944,7 +947,8 @@ module issue_read_operands
         .rdata_o  (rdata),
         .waddr_i  (waddr_pack),
         .wdata_i  (wdata_pack),
-        .we_i     (we_pack)
+        .we_i     (we_pack),
+        .window_config_i(window_config_i)
     );
   end
 
@@ -990,7 +994,8 @@ module issue_read_operands
             .rdata_o  (fprdata),
             .waddr_i  (waddr_pack),
             .wdata_i  (fp_wdata_pack),
-            .we_i     (we_fpr_i)
+            .we_i     (we_fpr_i),
+            .window_config_i(window_config_i)
         );
       end else begin : gen_asic_fp_regfile
         ariane_regfile #(
@@ -1006,7 +1011,8 @@ module issue_read_operands
             .rdata_o  (fprdata),
             .waddr_i  (waddr_pack),
             .wdata_i  (fp_wdata_pack),
-            .we_i     (we_fpr_i)
+            .we_i     (we_fpr_i),
+            .window_config_i(window_config_i)
         );
       end
     end else begin : no_fpr_gen

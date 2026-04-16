@@ -30,13 +30,17 @@ module ariane_regfile_fpga #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg       = config_pkg::cva6_cfg_empty,
     parameter int unsigned           DATA_WIDTH    = 32,
     parameter int unsigned           NR_READ_PORTS = 2,
-    parameter bit                    ZERO_REG_ZERO = 0
+    parameter bit                    ZERO_REG_ZERO = 0,
+    // Partitioned Register File Parameters
+    parameter int unsigned           PHYSICAL_REGS = 64
 ) (
     // clock and reset
     input  logic                                             clk_i,
     input  logic                                             rst_ni,
     // disable clock gates for testing
     input  logic                                             test_en_i,
+    // Partitioned Register File Control
+    input  logic [CVA6Cfg.XLEN-1:0]                          window_config_i,  // [31:16]=size, [15:0]=base_offset
     // read port
     input  logic [        NR_READ_PORTS-1:0][           4:0] raddr_i,
     output logic [        NR_READ_PORTS-1:0][DATA_WIDTH-1:0] rdata_o,
@@ -49,9 +53,43 @@ module ariane_regfile_fpga #(
   localparam ADDR_WIDTH = 5;
   localparam NUM_WORDS = 2 ** ADDR_WIDTH;
   localparam LOG_NR_WRITE_PORTS = CVA6Cfg.NrCommitPorts == 1 ? 1 : $clog2(CVA6Cfg.NrCommitPorts);
+  localparam PHYS_ADDR_WIDTH = $clog2(PHYSICAL_REGS);
+
+  // Window configuration registers
+  logic [15:0] window_base;
+  logic [15:0] window_size;
+  
+  // Extract base and size from window_config_i
+  assign window_base = window_config_i[15:0];
+  assign window_size = window_config_i[31:16];
+  
+  // Address translation with bounds checking
+  logic [NR_READ_PORTS-1:0][PHYS_ADDR_WIDTH-1:0] phys_raddr;
+  logic [CVA6Cfg.NrCommitPorts-1:0][PHYS_ADDR_WIDTH-1:0] phys_waddr;
+  logic [CVA6Cfg.NrCommitPorts-1:0] we_filtered;
+  
+  always_comb begin : address_translation
+    for (int i = 0; i < NR_READ_PORTS; i++) begin
+      if (raddr_i[i] < window_size) begin
+        phys_raddr[i] = window_base + raddr_i[i];
+      end else begin
+        phys_raddr[i] = '0;
+      end
+    end
+    
+    for (int j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin
+      if (waddr_i[j] < window_size) begin
+        phys_waddr[j] = window_base + waddr_i[j];
+        we_filtered[j] = we_i[j];
+      end else begin
+        phys_waddr[j] = '0;
+        we_filtered[j] = 1'b0;
+      end
+    end
+  end
 
   // Distributed RAM usually supports one write port per block - duplicate for each write port.
-  logic [NUM_WORDS-1:0][DATA_WIDTH-1:0] mem[CVA6Cfg.NrCommitPorts];
+  logic [PHYSICAL_REGS-1:0][DATA_WIDTH-1:0] mem[CVA6Cfg.NrCommitPorts];
 
   logic [CVA6Cfg.NrCommitPorts-1:0][NUM_WORDS-1:0] we_dec;
   logic [NUM_WORDS-1:0][LOG_NR_WRITE_PORTS-1:0] mem_block_sel;
